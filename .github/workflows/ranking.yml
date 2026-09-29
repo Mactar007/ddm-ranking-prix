@@ -1,0 +1,45 @@
+name: Classement Google + prix concurrents
+
+# Chaque jour à 04h00 UTC (= Dakar) : ~70 produits du site, une ligne par produit
+# dans le classeur. Les clés sont des secrets du dépôt ; les journaux ne montrent
+# que des compteurs.
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      limite:
+        description: 'Nombre de produits à traiter'
+        default: '70'
+      onglet:
+        description: 'Onglet de destination du classeur'
+        default: 'Feuille 1'
+
+jobs:
+  classement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    concurrency: classement
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Installer Scrapling et ses navigateurs
+        run: |
+          pip install -r requirements.txt
+          scrapling install
+
+      - name: Traiter les produits
+        env:
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          WIX_NEW_SITE_API_KEY: ${{ secrets.WIX_NEW_SITE_API_KEY }}
+          WIX_NEW_SITE_ID: ${{ secrets.WIX_NEW_SITE_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          LIMITE: ${{ inputs.limite || '70' }}
+          ONGLET: ${{ inputs.onglet || 'Feuille 1' }}
+        run: python ranking.py
