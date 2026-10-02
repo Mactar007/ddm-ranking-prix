@@ -1,6 +1,7 @@
 """Suivi du classement Google et des prix concurrents — DakarDiscountMarket.
 
-Pour chaque produit visible du site (Wix Stores V3, par ordre de création) :
+Pour chaque produit visible du site (Wix Stores V3, par ordre de création), hors catégories
+exclues (EXCLURE_CATEGORIES) :
   1. recherche Google via Serper (« <nom> Sénégal », Google Sénégal, en français) ;
   2. notre position calculée directement dans les résultats (sans IA) ;
   3. Gemini choisit au plus 2 concurrents opérant au Sénégal (lien exact d'une fiche produit) ;
@@ -38,6 +39,10 @@ LIMITE = int(os.environ.get('LIMITE') or 70)
 # Gemini gratuit : 15 requêtes/minute sur le projet → au plus une toutes les 4,5 s.
 PAUSE_GEMINI = float(os.environ.get('PAUSE_GEMINI') or 4.5)
 DEBUT = '2000-01-01T00:00:00Z'
+# Catégories Wix dont les produits sont sautés (ids séparés par des virgules) — le gros
+# électroménager (772 fiches sur 2157) occupait presque tous les lancements, demande
+# Mac007 du 02/10 : il garde son onglet « Feuille 1 », les autres catégories vont ailleurs.
+EXCLURE = {i.strip() for i in (os.environ.get('EXCLURE_CATEGORIES') or '').split(',') if i.strip()}
 
 NOS_DOMAINES = ('dakardiscountmarket.com', 'dakardiscount.com')
 RESEAUX = ('facebook.', 'instagram.', 'tiktok.', 'youtube.', 'twitter.', 'x.com', 'pinterest.', 'linkedin.')
@@ -137,6 +142,10 @@ class Curseur:
         existante = lignes[self.numero - 1] if self.numero <= len(lignes) else []
         self.valeur = existante[1] if len(existante) > 1 and existante[1] else DEBUT
 
+    def avancer(self, valeur):
+        """Avance sans écrire dans le classeur (produits sautés) ; écrit au prochain enregistrer()."""
+        self.valeur = valeur
+
     def enregistrer(self, valeur):
         self.valeur = valeur
         maintenant = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
@@ -156,7 +165,8 @@ def produits(apres, nombre):
     reponse = http_json('https://www.wixapis.com/stores/v3/products/query',
                         {'query': {'filter': {'visible': True, 'createdDate': {'$gt': apres}},
                                    'sort': [{'fieldName': 'createdDate', 'order': 'ASC'}],
-                                   'cursorPaging': {'limit': nombre}}},
+                                   'cursorPaging': {'limit': nombre}},
+                         'fields': ['ALL_CATEGORIES_INFO']},
                         {'Authorization': os.environ['WIX_NEW_SITE_API_KEY'], 'wix-site-id': os.environ['WIX_NEW_SITE_ID']})
     return reponse.get('products', [])
 
@@ -304,18 +314,29 @@ def main():
     debut = time.time()
     try:
         while compteurs['produits'] < LIMITE:
-            demande = min(100, LIMITE - compteurs['produits'])
+            demande = 100
             lot = produits(curseur.valeur, demande)
+            complet = True
             for produit in lot:
+                if compteurs['produits'] >= LIMITE:
+                    complet = False
+                    break
+                categories = {c.get('id') for c in (produit.get('allCategoriesInfo') or {}).get('categories', [])}
+                if categories & EXCLURE:
+                    curseur.avancer(produit['createdDate'])
+                    compteurs['produits sautés (catégorie exclue)'] += 1
+                    continue
                 ligne = traiter(produit, compteurs)
                 classeur.ajouter(f"'{ONGLET}'!A:O", ligne)
                 curseur.enregistrer(produit['createdDate'])
                 compteurs['produits'] += 1
                 compteurs['notre site dans le top 10'] += ligne[1] != ''
-            if len(lot) < demande:
+            if complet and len(lot) < demande:
                 compteurs['tours du catalogue terminés'] += 1
                 curseur.enregistrer(DEBUT)
                 break
+        if compteurs['produits sautés (catégorie exclue)']:
+            curseur.enregistrer(curseur.valeur)
     except ArretLancement as raison:
         print(f'Arrêt anticipé, reprise au prochain lancement : {raison}')
     duree = time.time() - debut

@@ -3,6 +3,13 @@ name: Classement Google + prix concurrents
 # Chaque jour à 04h00 UTC (= Dakar) : ~70 produits du site, une ligne par produit
 # dans le classeur. Les clés sont des secrets du dépôt ; les journaux ne montrent
 # que des compteurs.
+#
+# Depuis le 2026-10-03 (demande Mac007 du 02/10) : les lancements automatiques vont
+# dans l'onglet « Autres catégories » et sautent le gros électroménager (Gros
+# Electroménager, Climatiseurs / Splits, Machines à laver, Réfrigérateurs | Congélateurs,
+# Cuisinières | Plaques chauffantes), qui occupait presque tous les lancements.
+# L'onglet « Feuille 1 » (gros électroménager déjà traité) est conservé tel quel ;
+# on peut le relancer à la main (onglet « Feuille 1 », exclusion décochée).
 on:
   schedule:
     - cron: '0 4 * * *'
@@ -13,7 +20,14 @@ on:
         default: '70'
       onglet:
         description: 'Onglet de destination du classeur'
-        default: 'Feuille 1'
+        default: 'Autres catégories'
+      exclure_gros_electromenager:
+        description: 'Sauter le gros électroménager'
+        type: boolean
+        default: true
+
+env:
+  GROS_ELECTROMENAGER: 81aa2179-0f3b-4917-bab1-dda59ae3a1eb,02838fe8-b52f-4989-858d-7c53997ed2bd,9093663f-d7a0-4d3f-bd28-026f940cdd79,a0953230-b7cf-4d73-a9fc-994b4a4afc5e,af712e10-b936-40ff-aeba-cb4f721083a1
 
 jobs:
   classement:
@@ -21,19 +35,35 @@ jobs:
     timeout-minutes: 120
     concurrency: classement
     steps:
+      # Démarrage des « Autres catégories » le samedi 03/10 : le lancement automatique
+      # du vendredi 02/10 est sauté (le gros électroménager est en pause).
+      - name: Vérifier la date de démarrage
+        id: date
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%F)" \< "2026-10-03" ]; then
+            echo "Avant le 03/10 : lancement automatique sauté."
+            echo "lancer=non" >> "$GITHUB_OUTPUT"
+          else
+            echo "lancer=oui" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.date.outputs.lancer == 'oui'
 
       - uses: actions/setup-python@v5
+        if: steps.date.outputs.lancer == 'oui'
         with:
           python-version: '3.12'
           cache: pip
 
       - name: Installer Scrapling et ses navigateurs
+        if: steps.date.outputs.lancer == 'oui'
         run: |
           pip install -r requirements.txt
           scrapling install
 
       - name: Traiter les produits
+        if: steps.date.outputs.lancer == 'oui'
         env:
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -41,5 +71,6 @@ jobs:
           WIX_NEW_SITE_ID: ${{ secrets.WIX_NEW_SITE_ID }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           LIMITE: ${{ inputs.limite || '70' }}
-          ONGLET: ${{ inputs.onglet || 'Feuille 1' }}
+          ONGLET: ${{ inputs.onglet || 'Autres catégories' }}
+          EXCLURE_CATEGORIES: ${{ (github.event_name == 'schedule' || inputs.exclure_gros_electromenager) && env.GROS_ELECTROMENAGER || '' }}
         run: python ranking.py
