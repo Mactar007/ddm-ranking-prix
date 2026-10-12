@@ -184,7 +184,7 @@ def recherche_google(nom):
 _dernier_appel_gemini = [0.0]
 
 
-def gemini(invite):
+def _gemini(invite):
     attente = PAUSE_GEMINI - (time.time() - _dernier_appel_gemini[0])
     if attente > 0:
         time.sleep(attente)
@@ -193,6 +193,36 @@ def gemini(invite):
                         {'contents': [{'role': 'user', 'parts': [{'text': invite}]}],
                          'generationConfig': {'responseMimeType': 'application/json'}})
     return json.loads(reponse['candidates'][0]['content']['parts'][0]['text'])
+
+
+def _deepseek(invite):
+    """Secours payant à l'usage (quasi gratuit, ~0,001 $ par appel) : même modèle et
+    réglages que la lecture des photos fournisseur (validé le 10/10)."""
+    reponse = http_json('https://api.deepseek.com/chat/completions',
+                        {'model': 'deepseek-flash', 'temperature': 0, 'reasoning_effort': 'low',
+                         'response_format': {'type': 'json_object'},
+                         'messages': [{'role': 'user', 'content': invite + '\n\nRéponds uniquement avec le JSON demandé.'}]},
+                        {'Authorization': f'Bearer {os.environ["DEEPSEEK_API_KEY"]}'})
+    texte = reponse['choices'][0]['message']['content']
+    return json.loads(texte[texte.index('{'):texte.rindex('}') + 1])
+
+
+# Gemini (quota gratuit) d'abord ; s'il échoue (quota du jour, 503 persistant…),
+# DeepSeek prend le relais pour le reste du lancement (Mac007 12/10).
+_secours = {'actif': False, 'appels': 0}
+
+
+def gemini(invite):
+    if not _secours['actif']:
+        try:
+            return _gemini(invite)
+        except Exception as erreur:
+            if not os.environ.get('DEEPSEEK_API_KEY'):
+                raise
+            print(f'Gemini indisponible ({erreur}) → bascule sur DeepSeek', flush=True)
+            _secours['actif'] = True
+    _secours['appels'] += 1
+    return _deepseek(invite)
 
 
 def _offres(donnees):
@@ -263,7 +293,7 @@ def traiter(produit, compteurs):
         choix = gemini(PROMPT_CONCURRENTS.replace('{{NOM}}', produit['name'])
                        .replace('{{RESULTATS}}', json.dumps(organiques, ensure_ascii=False)))
     except Exception as erreur:
-        raise ArretLancement(f'Gemini indisponible ({erreur})')
+        raise ArretLancement(f'IA indisponible, Gemini puis DeepSeek ({erreur})')
 
     candidats = []
     for choisi in choix.get('concurrents') or []:
@@ -344,6 +374,8 @@ def main():
           f" ({duree / max(compteurs['produits'], 1):.1f} s/produit)")
     for cle, valeur in sorted(compteurs.items()):
         print(f'  {cle} : {valeur}')
+    if _secours['appels']:
+        print(f"  appels DeepSeek (secours) : {_secours['appels']}")
 
 
 if __name__ == '__main__':
