@@ -13,6 +13,7 @@ envoyé sur Telegram si TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID sont définis.
 Les journaux ne contiennent que des compteurs (dépôt public).
 """
 import os
+import re
 import urllib.parse
 import urllib.request
 from datetime import date
@@ -39,6 +40,22 @@ AUTRES_PAYS = ('haiti', 'haïti', 'tunisie', 'maroc', 'algérie', 'algerie', 'ca
                'amazon', 'decathlon', 'gifi', 'castorama', 'darty', 'boulanger', 'cdiscount')
 # Google Actualités renvoie aussi des coupures au Portugal, en Mauritanie… : on ne garde que le Sénégal.
 SENEGAL = ('sénégal', 'senegal', 'senelec', 'dakar', '.sn/')
+MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre',
+        'novembre', 'décembre']
+
+
+def perime(titre, aujourdhui):
+    """Vrai si le titre annonce une date déjà passée (« … jusqu'au lundi 5 octobre » lu le 13/10) :
+    Google date parfois de « cette semaine » un vieil article republié."""
+    for jour, mois in re.findall(r'\b(\d{1,2})(?:er)? (' + '|'.join(MOIS) + r')\b', titre.lower()):
+        try:
+            if date(aujourdhui.year, MOIS.index(mois) + 1, int(jour)) < aujourdhui:
+                return True
+        except ValueError:
+            pass
+    return False
+
+
 ONGLETS = {
     'avis': ('Veille avis', ['Date', 'Établissement', 'Note', "Nombre d'avis", 'Nous ?']),
     'avis_clients': ('Veille avis clients', ['Relevé le', 'Établissement', 'Note', "Date de l'avis", 'Avis']),
@@ -61,7 +78,8 @@ def telegram(texte):
 
 
 def main():
-    aujourdhui = date.today().isoformat()
+    jour = date.today()
+    aujourdhui = jour.isoformat()
     classeur = Classeur()
     existants = classeur.onglets()
     for titre, en_tetes in ONGLETS.values():
@@ -69,7 +87,7 @@ def main():
             classeur.creer_onglet(titre)
             classeur.ecrire(f"'{titre}'!A1", [en_tetes])
     credits = 0
-    resume = [f'🔎 Veille de la semaine ({aujourdhui})', '', '⭐ Avis Google Maps']
+    resume = [f"🔎 Veille de la semaine ({jour.strftime('%d/%m/%Y')})", '', '⭐ Avis Google Maps']
 
     for nom, recherche, nous in ETABLISSEMENTS:
         lieu = (serper('places', {'q': recherche}).get('places') or [{}])[0]
@@ -102,13 +120,13 @@ def main():
         credits += 1
         for n in articles[:5]:
             texte = f"{n.get('title', '')} {n.get('snippet', '')} {n.get('source', '')} {n.get('link', '')}".lower()
-            if n.get('link') in vus or not any(m in texte for m in SENEGAL):
+            if n.get('link') in vus or not any(m in texte for m in SENEGAL) or perime(n.get('title', ''), jour):
                 continue
             vus.add(n.get('link'))
             classeur.ajouter(f"'{ONGLETS['actualites'][0]}'!A:F",
                              [aujourdhui, sujet, n.get('title', ''), n.get('source', ''), n.get('date', ''), n.get('link', '')])
             if len(resume) < 40:
-                resume.append(f"- {n.get('title', '')[:110]} ({n.get('source', '')})")
+                resume.append(f"- {n.get('title', '')[:110]} ({n.get('source', '')}, {(n.get('date') or '').lower()})")
 
     resume += ['', f'{credits} crédits Serper utilisés.']
     telegram('\n'.join(resume))
