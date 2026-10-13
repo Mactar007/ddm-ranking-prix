@@ -25,7 +25,8 @@ ETABLISSEMENTS = [  # (nom affiché, recherche Google Maps, est-ce nous ?)
     ('DakarDiscount (Médina)', 'DakarDiscount Médina Dakar', True),
     ('Kabirex', 'Kabirex Dakar', False),
     ('Electronic Corp (Sacré-Cœur, rond-point JVC)', 'Electronic Corp rond-point JVC Dakar', False),
-    ('Fadel Digital', 'Fadel Digital Dakar', False),
+    # 13/10 : aucune fiche Maps à Liberté 6 ; « Fadel Digital Dakar » renvoyait FADEL'SHOP (rue Rafenel), autre boutique.
+    ('Fadel Digital (Liberté 6)', 'Fadel Digital Liberté 6', False),
 ]
 MOTS_DE_DEPART = [
     'ventilateur rechargeable', 'climatiseur', 'réfrigérateur', 'machine à laver', 'congélateur',
@@ -94,7 +95,7 @@ def main():
         credits += 1
         note, nombre = lieu.get('rating', ''), lieu.get('ratingCount', 0)
         classeur.ajouter(f"'{ONGLETS['avis'][0]}'!A:E", [aujourdhui, nom, note, nombre, 'oui' if nous else ''])
-        resume.append(f"- {nom} : {note or 'pas de note'} ({nombre or 0} avis)")
+        resume.append(f"- {nom} : {note or 'pas de note'} ({nombre or 0} avis)" if lieu else f'- {nom} : fiche introuvable sur Google Maps')
         if nous and lieu.get('cid'):
             avis = serper('reviews', {'cid': lieu['cid'], 'sortBy': 'newest'}).get('reviews', [])[:5]
             credits += 1
