@@ -24,9 +24,11 @@ ETABLISSEMENTS = [  # (nom affiché, recherche Google Maps, est-ce nous ?)
     ('DakarDiscountMarket (Grand Yoff)', 'DakarDiscountMarket Grand Yoff Dakar', True),
     ('DakarDiscount (Médina)', 'DakarDiscount Médina Dakar', True),
     ('Kabirex', 'Kabirex Dakar', False),
-    ('Electronic Corp (Sacré-Cœur, rond-point JVC)', 'Electronic Corp rond-point JVC Dakar', False),
-    # 13/10 : aucune fiche Maps à Liberté 6 ; « Fadel Digital Dakar » renvoyait FADEL'SHOP (rue Rafenel), autre boutique.
-    ('Fadel Digital (Liberté 6)', 'Fadel Digital Liberté 6', False),
+    # Rond-point JVC, Liberté 6 (Mac007 13/10) = fiche « Electronic Corp Service Apres Vente ». Autres fiches :
+    # Sacré Coeur 3 (~1 km, 4★/161 au 13/10), Point E, av. Lamine Gueye.
+    ('Electronic Corp (Liberté 6, rond-point JVC)', 'Electronic Corp Liberté 6 Dakar', False),
+    # 13/10 : aucune fiche Maps « Fadel Digital » ; « Fadel Digital Dakar » renvoyait FADEL'SHOP (rue Rafenel), autre boutique.
+    ('Fadel Digital', 'Fadel Digital', False),
 ]
 MOTS_DE_DEPART = [
     'ventilateur rechargeable', 'climatiseur', 'réfrigérateur', 'machine à laver', 'congélateur',
