@@ -1,6 +1,6 @@
 name: Classement Google + prix concurrents
 
-# Chaque jour à 04h00 UTC (= Dakar) : ~70 produits du site, une ligne par produit
+# Chaque jour à 04h00 UTC (= Dakar) : 35 produits du site, une ligne par produit
 # dans le classeur. Les clés sont des secrets du dépôt ; les journaux ne montrent
 # que des compteurs.
 #
@@ -10,6 +10,9 @@ name: Classement Google + prix concurrents
 # Cuisinières | Plaques chauffantes), qui occupait presque tous les lancements.
 # L'onglet « Feuille 1 » (gros électroménager déjà traité) est conservé tel quel ;
 # on peut le relancer à la main (onglet « Feuille 1 », exclusion décochée).
+#
+# Depuis le 2026-10-13 (Mac007, économie de crédits Serper) : 35 produits par jour au lieu
+# de 70, et seulement le rayon Sport (catégorie mère, qui contient toutes ses sous-catégories).
 on:
   schedule:
     - cron: '0 4 * * *'
@@ -17,7 +20,7 @@ on:
     inputs:
       limite:
         description: 'Nombre de produits à traiter'
-        default: '70'
+        default: '35'
       onglet:
         description: 'Onglet de destination du classeur'
         default: 'Autres catégories'
@@ -25,8 +28,13 @@ on:
         description: 'Sauter le gros électroménager'
         type: boolean
         default: true
+      sport_seulement:
+        description: 'Ne suivre que le rayon Sport'
+        type: boolean
+        default: true
 
 env:
+  SPORT: f5cac129-5637-4036-82ea-57762c95eeb9
   GROS_ELECTROMENAGER: 81aa2179-0f3b-4917-bab1-dda59ae3a1eb,02838fe8-b52f-4989-858d-7c53997ed2bd,9093663f-d7a0-4d3f-bd28-026f940cdd79,a0953230-b7cf-4d73-a9fc-994b4a4afc5e,af712e10-b936-40ff-aeba-cb4f721083a1
 
 jobs:
@@ -71,7 +79,8 @@ jobs:
           WIX_NEW_SITE_API_KEY: ${{ secrets.WIX_NEW_SITE_API_KEY }}
           WIX_NEW_SITE_ID: ${{ secrets.WIX_NEW_SITE_ID }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          LIMITE: ${{ inputs.limite || '70' }}
+          LIMITE: ${{ inputs.limite || '35' }}
           ONGLET: ${{ inputs.onglet || 'Autres catégories' }}
           EXCLURE_CATEGORIES: ${{ (github.event_name == 'schedule' || inputs.exclure_gros_electromenager) && env.GROS_ELECTROMENAGER || '' }}
+          INCLURE_CATEGORIES: ${{ (github.event_name == 'schedule' || inputs.sport_seulement) && env.SPORT || '' }}
         run: python ranking.py

@@ -1,7 +1,7 @@
 """Suivi du classement Google et des prix concurrents — DakarDiscountMarket.
 
 Pour chaque produit visible du site (Wix Stores V3, par ordre de création), hors catégories
-exclues (EXCLURE_CATEGORIES) :
+exclues (EXCLURE_CATEGORIES) et, si INCLURE_CATEGORIES est rempli, seulement dans ces catégories :
   1. recherche Google via Serper (« <nom> Sénégal », Google Sénégal, en français) ;
   2. notre position calculée directement dans les résultats (sans IA) ;
   3. Gemini choisit au plus 2 concurrents opérant au Sénégal (lien exact d'une fiche produit) ;
@@ -43,6 +43,9 @@ DEBUT = '2000-01-01T00:00:00Z'
 # électroménager (772 fiches sur 2157) occupait presque tous les lancements, demande
 # Mac007 du 02/10 : il garde son onglet « Feuille 1 », les autres catégories vont ailleurs.
 EXCLURE = {i.strip() for i in (os.environ.get('EXCLURE_CATEGORIES') or '').split(',') if i.strip()}
+# Catégories suivies seules (vide = toutes) — Mac007 13/10 : rayons prioritaires seulement
+# (Sport), pour économiser les crédits Serper.
+INCLURE = {i.strip() for i in (os.environ.get('INCLURE_CATEGORIES') or '').split(',') if i.strip()}
 
 NOS_DOMAINES = ('dakardiscountmarket.com', 'dakardiscount.com')
 RESEAUX = ('facebook.', 'instagram.', 'tiktok.', 'youtube.', 'twitter.', 'x.com', 'pinterest.', 'linkedin.')
@@ -352,7 +355,7 @@ def main():
                     complet = False
                     break
                 categories = {c.get('id') for c in (produit.get('allCategoriesInfo') or {}).get('categories', [])}
-                if categories & EXCLURE:
+                if categories & EXCLURE or (INCLURE and not categories & INCLURE):
                     curseur.avancer(produit['createdDate'])
                     compteurs['produits sautés (catégorie exclue)'] += 1
                     continue
