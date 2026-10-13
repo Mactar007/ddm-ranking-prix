@@ -24,7 +24,7 @@ ETABLISSEMENTS = [  # (nom affiché, recherche Google Maps, est-ce nous ?)
     ('DakarDiscountMarket (Grand Yoff)', 'DakarDiscountMarket Grand Yoff Dakar', True),
     ('DakarDiscount (Médina)', 'DakarDiscount Médina Dakar', True),
     ('Kabirex', 'Kabirex Dakar', False),
-    ('Electronic Corp', 'Electronic Corp Sénégal Dakar', False),
+    ('Electronic Corp (Sacré-Cœur, rond-point JVC)', 'Electronic Corp rond-point JVC Dakar', False),
     ('Fadel Digital', 'Fadel Digital Dakar', False),
 ]
 MOTS_DE_DEPART = [
