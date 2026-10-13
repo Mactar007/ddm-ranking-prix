@@ -1,0 +1,30 @@
+name: Veille hebdomadaire (avis Maps, suggestions Google, actualités)
+
+# Chaque lundi à 08h00 UTC (= Dakar), ~25 crédits Serper (Mac007 13/10) : avis Google Maps
+# (nos 2 fiches + 3 concurrents), suggestions de recherche Google, actualités de la semaine
+# (coupures d'électricité, délestages, chaleur). Résultats dans les onglets « Veille … » du
+# classeur du suivi des prix, résumé sur Telegram (secrets TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID).
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  veille:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      # Seule google-auth est nécessaire (pas les navigateurs de Scrapling).
+      - run: pip install google-auth requests
+      - name: Relever la veille
+        env:
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python veille.py
