@@ -51,6 +51,9 @@ NOS_DOMAINES = ('dakardiscountmarket.com', 'dakardiscount.com')
 RESEAUX = ('facebook.', 'instagram.', 'tiktok.', 'youtube.', 'twitter.', 'x.com', 'pinterest.', 'linkedin.')
 # Sites qui bloquent la lecture simple (mesuré le 29/09/2026 : Jumia répond 403).
 DOMAINES_FURTIFS = ('jumia.sn',)
+# Sites qui n'ont pas répondu (délai dépassé) pendant ce lancement : on ne les relit plus
+# jusqu'au lancement suivant (tech-access-dakar.com, 21/10 : ~4 min perdues par page).
+INJOIGNABLES = set()
 EN_TETES = ['Produit', 'Notre position', 'Notre prix',
             'Concurrent1 lien', 'Concurrent1 position', 'Concurrent1 prix', 'Concurrent1 correspondance', 'Concurrent1 justification',
             'Concurrent2 lien', 'Concurrent2 position', 'Concurrent2 prix', 'Concurrent2 correspondance', 'Concurrent2 justification',
@@ -310,10 +313,15 @@ def traiter(produit, compteurs):
 
     concurrents = []
     for url in candidats:
+        if domaine(url) in INJOIGNABLES:
+            compteurs['sites injoignables sautés'] += 1
+            continue
         try:
             texte, prix_page = lire_page(url)
-        except Exception:
+        except Exception as erreur:
             compteurs['pages illisibles'] += 1
+            if re.search(r'timed out|timeout', str(erreur), re.I):
+                INJOIGNABLES.add(domaine(url))
             continue
         if not semble_senegalais(url, texte):
             compteurs['hors Sénégal écartés'] += 1
