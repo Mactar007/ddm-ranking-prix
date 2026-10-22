@@ -46,6 +46,15 @@ EXCLURE = {i.strip() for i in (os.environ.get('EXCLURE_CATEGORIES') or '').split
 # Catégories suivies seules (vide = toutes) — Mac007 13/10 : rayons prioritaires seulement
 # (Sport), pour économiser les crédits Serper.
 INCLURE = {i.strip() for i in (os.environ.get('INCLURE_CATEGORIES') or '').split(',') if i.strip()}
+# Lancements automatiques (Mac007 22/10) : on alterne Sport → gros électroménager → Sport…
+# Chaque rayon garde son onglet et son curseur ; on change de rayon quand son tour du
+# catalogue est terminé. Le rayon en cours est noté sur la ligne « Phase » de l'onglet « Etat ».
+ALTERNANCE = os.environ.get('ALTERNANCE') == '1'
+PHASES = {
+    'Sport': ('Autres catégories', os.environ.get('SPORT_IDS') or ''),
+    'Gros électroménager': ('Feuille 1', os.environ.get('GROS_IDS') or ''),
+}
+PHASE_SUIVANTE = {'Sport': 'Gros électroménager', 'Gros électroménager': 'Sport'}
 
 NOS_DOMAINES = ('dakardiscountmarket.com', 'dakardiscount.com')
 RESEAUX = ('facebook.', 'instagram.', 'tiktok.', 'youtube.', 'twitter.', 'x.com', 'pinterest.', 'linkedin.')
@@ -344,10 +353,37 @@ def traiter(produit, compteurs):
             + [date.today().isoformat(), f"https://dakardiscountmarket.com/product/{produit['slug']}"])
 
 
+def ligne_phase(classeur):
+    lignes = classeur.lire(f'{ONGLET_ETAT}!A:C')
+    numero = next((i + 1 for i, l in enumerate(lignes) if l and l[0] == 'Phase'), len(lignes) + 1)
+    existante = lignes[numero - 1] if numero <= len(lignes) else []
+    phase = existante[1] if len(existante) > 1 and existante[1] in PHASES else 'Sport'
+    return numero, phase
+
+
+def choisir_phase(classeur):
+    global ONGLET, INCLURE, EXCLURE
+    _, phase = ligne_phase(classeur)
+    ONGLET, ids = PHASES[phase]
+    INCLURE = {i.strip() for i in ids.split(',') if i.strip()}
+    EXCLURE = set()
+    print(f'Rayon en cours : {phase} (onglet « {ONGLET} »)')
+    return phase
+
+
+def passer_a_la_phase_suivante(classeur, phase):
+    numero, _ = ligne_phase(classeur)
+    suivante = PHASE_SUIVANTE[phase]
+    maintenant = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+    classeur.ecrire(f'{ONGLET_ETAT}!A{numero}:C{numero}', [['Phase', suivante, maintenant]])
+    print(f'Tour du rayon {phase} terminé : prochain lancement sur {suivante}')
+
+
 def main():
     from collections import Counter
     compteurs = Counter()
     classeur = Classeur()
+    phase = choisir_phase(classeur) if ALTERNANCE else None
     if ONGLET not in classeur.onglets():
         classeur.creer_onglet(ONGLET)
         classeur.ecrire(f"'{ONGLET}'!A1:O1", [EN_TETES])
@@ -380,6 +416,8 @@ def main():
             curseur.enregistrer(curseur.valeur)
     except ArretLancement as raison:
         print(f'Arrêt anticipé, reprise au prochain lancement : {raison}')
+    if phase and compteurs['tours du catalogue terminés']:
+        passer_a_la_phase_suivante(classeur, phase)
     duree = time.time() - debut
     print(f"Onglet « {ONGLET} », modèle {MODELE} : {compteurs['produits']} produit(s) en {duree / 60:.1f} min"
           f" ({duree / max(compteurs['produits'], 1):.1f} s/produit)")
