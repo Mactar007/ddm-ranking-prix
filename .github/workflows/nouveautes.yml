@@ -1,8 +1,8 @@
-name: Veille des nouveautés (Jumia SN, AliExpress, TikTok Sénégal)
+name: Veille des nouveautés (Jumia SN, AliExpress, TikTok Sénégal, Shopee, Lazada)
 
-# Chaque lundi à 09h00 UTC (= Dakar), après la veille Serper de 08h00, sans aucun crédit Serper (Mac007 25/10) :
-# nouveautés Jumia SN, meilleures ventes AliExpress et arrivages annoncés sur TikTok Sénégal, par famille de
-# produits. Une ligne par article dans l'onglet « Nouveautés & tendances », résumé sur Telegram.
+# Chaque lundi à 09h00 UTC (= Dakar), après la veille Serper de 08h00 (Mac007 25/10) : nouveautés Jumia SN,
+# meilleures ventes AliExpress et arrivages annoncés sur TikTok Sénégal, par famille de produits ; Shopee et
+# Lazada via Google (Mac007 30/10, 16 crédits Serper par semaine). Une ligne par article dans l'onglet « Nouveautés & tendances », résumé sur Telegram.
 on:
   schedule:
     - cron: '0 9 * * 1'
@@ -27,4 +27,5 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         run: python nouveautes.py
