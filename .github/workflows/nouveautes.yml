@@ -22,6 +22,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           scrapling install
+          patchright install --with-deps chromium
       - name: Relever les nouveautés
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
